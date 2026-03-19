@@ -15,7 +15,7 @@ provider "aws" {
 variable "bucket_suffix" {
   description = "Unique suffix for bucket name (use your initials)"
   type        = string
-  default     = "tos"  # CHANGE THIS to your initials!
+  default     = "tos" # CHANGE THIS to your initials!
 }
 
 # S3 Bucket - using fixed name to prevent duplicates
@@ -27,7 +27,7 @@ resource "aws_s3_bucket" "demo" {
     Environment = "dev"
     ManagedBy   = "terraform"
     DeployedBy  = "github-actions"
-    TestTag = "pr-comment-test"
+    TestTag     = "pr-comment-test"
   }
 }
 
