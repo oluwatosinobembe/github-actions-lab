@@ -1,57 +1,71 @@
-name: Terraform CI/CD
+name: Terraform Plan
 
+# Trigger: Runs whenever a pull request targeting main is opened or updated
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
 
+# Environment variables: AWS credentials available to all steps in this workflow
 env:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   AWS_REGION: ${{ secrets.AWS_REGION }}
 
+# Jobs: A workflow can have multiple jobs that run in parallel or sequentially
+# Each job runs in a fresh virtual environment (runner)
 jobs:
-  terraform:
-    name: Terraform Plan & Apply
-    runs-on: ubuntu-latest
+  # Job 1: plan
+  # This job checks Terraform configuration and generates a plan
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest  # Runs on an Ubuntu virtual machine
 
-    # Required for PR comments
+    # Permissions: Allow reading code and posting comments on pull requests
     permissions:
-      contents: read
-      pull-requests: write
+      contents: read          # Read repository code
+      pull-requests: write    # Post comments on PRs
 
+    # Steps: A sequence of tasks that execute in order within this job
+    # All steps in a job share the same runner and filesystem
     steps:
+      # Step 1: Get the code from the repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Step 2: Install Terraform CLI on the runner
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
 
+      # Step 3: Check if Terraform files are properly formatted
+      # This step won't fail the workflow, just reports the status
       - name: Terraform Format Check
         id: fmt
         run: terraform fmt -check
         continue-on-error: true
 
+      # Step 4: Initialize Terraform (download providers, modules, etc.)
       - name: Terraform Init
         id: init
         run: terraform init
 
+      # Step 5: Validate the Terraform configuration syntax
       - name: Terraform Validate
         id: validate
         run: terraform validate -no-color
 
+      # Step 6: Generate an execution plan showing what changes will be made
+      # This step won't fail the workflow even if plan has errors
       - name: Terraform Plan
         id: plan
-        run: terraform plan -no-color -out=tfplan
+        run: terraform plan -no-color
         continue-on-error: true
 
+      # Step 7: Post the plan results as a comment on the pull request
+      # This helps reviewers see what infrastructure changes will happen
       - name: Comment Plan on PR
-        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         env:
           PLAN: ${{ steps.plan.outputs.stdout }}
@@ -82,10 +96,8 @@ jobs:
               body: output
             })
 
+      # Step 8: Fail the workflow if the plan step failed
+      # This prevents merging PRs that have Terraform errors
       - name: Plan Status Check
         if: steps.plan.outcome == 'failure'
         run: exit 1
-
-      - name: Terraform Apply
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: terraform apply -auto-approve tfplan
