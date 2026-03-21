@@ -1,0 +1,50 @@
+name: Terraform Apply
+
+# Trigger: Runs when code is pushed to main (typically after a PR is merged)
+on:
+  push:
+    branches:
+      - main
+
+# Environment variables: AWS credentials available to all steps in this workflow
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+
+# Jobs: A workflow can have multiple jobs that run in parallel or sequentially
+# Each job runs in a fresh virtual environment (runner)
+jobs:
+  # Job 1: apply
+  # This job applies Terraform changes to AWS infrastructure
+  apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest  # Runs on an Ubuntu virtual machine
+
+    # Steps: A sequence of tasks that execute in order within this job
+    # All steps in a job share the same runner and filesystem
+    steps:
+      # Step 1: Get the code from the repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Install Terraform CLI on the runner
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      # Step 3: Initialize Terraform (download providers, modules, etc.)
+      - name: Terraform Init
+        run: terraform init
+
+      # Step 4: Generate an execution plan and save it to a file
+      # This ensures we apply exactly what we reviewed in the PR
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+
+      # Step 5: Apply the infrastructure changes automatically
+      # Uses the saved plan file to ensure consistency
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+
