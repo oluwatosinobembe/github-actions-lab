@@ -1,10 +1,10 @@
 name: Terraform Apply
 
-# Trigger: Runs when code is pushed to main (typically after a PR is merged)
+# Trigger: Runs when code is pushed to test-branch.
 on:
   push:
     branches:
-      - main
+      - test-branch
 
 # Environment variables: AWS credentials available to all steps in this workflow
 env:

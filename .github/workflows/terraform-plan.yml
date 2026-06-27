@@ -36,8 +36,7 @@ jobs:
       # Step 2: Install Terraform CLI on the runner
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.0
+
 
       # Step 3: Check if Terraform files are properly formatted
       # This step won't fail the workflow, just reports the status
