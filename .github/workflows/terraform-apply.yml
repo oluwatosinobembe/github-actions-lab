@@ -4,7 +4,7 @@ name: Terraform Apply
 on:
   push:
     branches:
-      - test-branch
+      - main
 
 # Environment variables: AWS credentials available to all steps in this workflow
 env:
