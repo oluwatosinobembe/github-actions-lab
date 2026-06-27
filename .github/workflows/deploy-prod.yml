@@ -1,0 +1,66 @@
+name: Deploy WITHDRAWAL Service (Prod)
+
+on:
+  push:
+    tags:
+      - v* # to create a release for the production env. the release should look like v1.8.0
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy WITHDRAWAL service to prod environment
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ovalfi-withdrawal-service
+          IMAGE_TAG: prod # prod tag for prod environment
+        run: |
+          ls -la
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f src/Dockerfile \
+            --build-arg app_env=production \
+            --build-arg project=ygp \
+            --build-arg config=prod \
+            --build-arg use_service_token=true \
+            --build-arg service_token=${{ secrets.PROD_ENV_SERVICE_TOKEN }} \
+            --build-arg docker_github_token=${{ secrets.DOCKER_GITHUB_TOKEN }} \
+            --build-arg git_repo_url=github.com/$GITHUB_REPOSITORY \
+            --build-arg git_commit_hash=$GITHUB_SHA .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+      - name: Download task definition
+        run: |
+          aws ecs describe-task-definition --task-definition prod-withdrawal --query taskDefinition > task-definition.json
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: prod-ovalfi-withdrawal
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ovalfi-prod-withdrawal-service
+          cluster: prod
+          wait-for-service-stability: true

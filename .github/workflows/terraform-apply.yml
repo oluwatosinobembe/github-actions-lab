@@ -1,6 +1,6 @@
 name: Terraform Apply
 
-# Trigger: Runs when code is pushed to main (typically after a PR is merged)
+# Trigger: Runs when code is pushed to test-branch.
 on:
   push:
     branches:
